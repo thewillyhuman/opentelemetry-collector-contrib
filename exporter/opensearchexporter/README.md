@@ -137,6 +137,8 @@ Metrics follow the [SS4O metrics schema](https://github.com/opensearch-project/o
 
 > [!NOTE]
 > Install the [SS4O metrics index template](https://github.com/opensearch-project/opensearch-catalog/tree/main/schema/observability/metrics) before indexing metrics. Without it, OpenSearch's dynamic mapping infers field types from the first document it sees, which can produce inconsistent types (e.g. histogram bucket boundaries) and cause subsequent documents to be rejected.
+>
+> The catalog template maps `value@int` as a 32-bit `integer`; OpenTelemetry integer data points are 64-bit, so values beyond ±2³¹ are rejected. Change that field to `long` in the template before installing it ([Data Prepper's reference template](https://github.com/opensearch-project/data-prepper/blob/main/data-prepper-plugins/opensearch/src/main/resources/index-template/metrics-otel-v1-index-standard-template.json) already uses `long`).
 
 #### ECS mapping mode
 
