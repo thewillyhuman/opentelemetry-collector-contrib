@@ -5,6 +5,7 @@ package opensearchexporter
 
 import (
 	"encoding/json"
+	"math"
 	"testing"
 	"time"
 
@@ -333,7 +334,20 @@ func TestMakeExplicitBuckets(t *testing.T) {
 	assert.Equal(t, float64(20), buckets[2].Min)
 	assert.Equal(t, uint64(3), buckets[2].Count)
 
+	// Unbounded edges must stay within the float32 range required by the
+	// SS4O and Data Prepper index templates.
+	assert.Equal(t, -float64(math.MaxFloat32), buckets[0].Min)
+	assert.Equal(t, float64(math.MaxFloat32), buckets[2].Max)
+
 	assert.Nil(t, makeExplicitBuckets(nil, nil))
+}
+
+func TestClampToFloat32(t *testing.T) {
+	assert.Equal(t, float64(math.MaxFloat32), clampToFloat32(math.MaxFloat64))
+	assert.Equal(t, -float64(math.MaxFloat32), clampToFloat32(-math.MaxFloat64))
+	assert.Equal(t, float64(math.MaxFloat32), clampToFloat32(math.Inf(1)))
+	assert.Equal(t, -float64(math.MaxFloat32), clampToFloat32(math.Inf(-1)))
+	assert.Equal(t, 42.5, clampToFloat32(42.5))
 }
 
 func TestTemporalityString(t *testing.T) {

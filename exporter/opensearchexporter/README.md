@@ -135,6 +135,9 @@ In `ss4o` mapping mode, the OpenSearch exporter stores documents using the SS4O 
 
 Metrics follow the [SS4O metrics schema](https://github.com/opensearch-project/opensearch-catalog/tree/main/schema/observability/metrics); each metric data point is exported as one document. All OpenTelemetry metric types are supported: gauge, sum, histogram, exponential histogram and summary.
 
+> [!NOTE]
+> Install the [SS4O metrics index template](https://github.com/opensearch-project/opensearch-catalog/tree/main/schema/observability/metrics) before indexing metrics. Without it, OpenSearch's dynamic mapping infers field types from the first document it sees, which can produce inconsistent types (e.g. histogram bucket boundaries) and cause subsequent documents to be rejected.
+
 #### ECS mapping mode
 
 > [!WARNING]

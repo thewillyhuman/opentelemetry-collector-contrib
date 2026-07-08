@@ -260,20 +260,21 @@ func temporalityString(temporality pmetric.AggregationTemporality) string {
 
 // makeExplicitBuckets materializes the buckets of an explicit-bounds histogram
 // data point. Bucket i covers (bounds[i-1], bounds[i]]; the first and last
-// buckets are unbounded and are capped at ±math.MaxFloat64 so the boundaries
-// remain representable in JSON.
+// buckets are unbounded and are capped at ±math.MaxFloat32 because the SS4O
+// and Data Prepper index templates map bucket boundaries as 32-bit floats,
+// which reject values outside their range as ±Infinity.
 func makeExplicitBuckets(counts []uint64, bounds []float64) []metricBucket {
 	if len(counts) == 0 {
 		return nil
 	}
 	buckets := make([]metricBucket, len(counts))
 	for i, count := range counts {
-		bucket := metricBucket{Count: count, Min: -math.MaxFloat64, Max: math.MaxFloat64}
+		bucket := metricBucket{Count: count, Min: -math.MaxFloat32, Max: math.MaxFloat32}
 		if i > 0 && i-1 < len(bounds) {
-			bucket.Min = bounds[i-1]
+			bucket.Min = clampToFloat32(bounds[i-1])
 		}
 		if i < len(bounds) {
-			bucket.Max = bounds[i]
+			bucket.Max = clampToFloat32(bounds[i])
 		}
 		buckets[i] = bucket
 	}
@@ -283,7 +284,8 @@ func makeExplicitBuckets(counts []uint64, bounds []float64) []metricBucket {
 // makeExponentialBuckets materializes the buckets of an exponential histogram
 // data point. Positive bucket i covers (base^(offset+i), base^(offset+i+1)]
 // with base = 2^(2^-scale); negative buckets mirror the positive ones around
-// zero.
+// zero. Boundaries are clamped to the float32 range required by the index
+// templates.
 func makeExponentialBuckets(scale int32, dpBuckets pmetric.ExponentialHistogramDataPointBuckets, negative bool) []metricBucket {
 	counts := dpBuckets.BucketCounts().AsRaw()
 	if len(counts) == 0 {
@@ -298,9 +300,23 @@ func makeExponentialBuckets(scale int32, dpBuckets pmetric.ExponentialHistogramD
 		if negative {
 			lower, upper = -upper, -lower
 		}
-		buckets[i] = metricBucket{Count: count, Min: lower, Max: upper}
+		buckets[i] = metricBucket{Count: count, Min: clampToFloat32(lower), Max: clampToFloat32(upper)}
 	}
 	return buckets
+}
+
+// clampToFloat32 caps a value to the float32 range. The SS4O and Data Prepper
+// metrics index templates map bucket boundaries as 32-bit floats; values
+// beyond that range (including ±Inf produced by overflow) fail to index.
+func clampToFloat32(v float64) float64 {
+	switch {
+	case v > math.MaxFloat32:
+		return math.MaxFloat32
+	case v < -math.MaxFloat32:
+		return -math.MaxFloat32
+	default:
+		return v
+	}
 }
 
 // makeExemplars converts pmetric exemplars to their document representation.
