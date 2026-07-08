@@ -55,6 +55,13 @@ type Config struct {
 	TracesIndexFallback   string `mapstructure:"traces_index_fallback"`
 	TracesIndexTimeFormat string `mapstructure:"traces_index_time_format"`
 
+	// MetricsIndex configures the index, index alias, or data stream name metrics should be indexed in.
+	// https://opensearch.org/docs/latest/im-plugin/index/
+	// https://opensearch.org/docs/latest/dashboards/im-dashboards/datastream/
+	MetricsIndex           string `mapstructure:"metrics_index"`
+	MetricsIndexFallback   string `mapstructure:"metrics_index_fallback"`
+	MetricsIndexTimeFormat string `mapstructure:"metrics_index_time_format"`
+
 	// BulkAction configures the action for ingesting data. Only `create` and `index` are allowed here.
 	// If not specified, the default value `create` will be used.
 	BulkAction string `mapstructure:"bulk_action"`
@@ -65,14 +72,16 @@ type Config struct {
 }
 
 var (
-	errConfigNoEndpoint             = errors.New("endpoint must be specified")
-	errDatasetNoValue               = errors.New("dataset must be specified")
-	errNamespaceNoValue             = errors.New("namespace must be specified")
-	errBulkActionInvalid            = errors.New("bulk_action can either be `create` or `index`")
-	errMappingModeInvalid           = errors.New("mapping.mode is invalid")
-	errLogsIndexTimeFormatInvalid   = errors.New("logs_index_time_format contains unsupported or invalid tokens")
-	errTracesIndexTimeFormatInvalid = errors.New("traces_index_time_format contains unsupported or invalid tokens")
-	errOTelV1DatasetNamespaceUnused = errors.New(`dataset and namespace are not used by mapping.mode "otel-v1"; remove them or pick a different mode`)
+	errConfigNoEndpoint              = errors.New("endpoint must be specified")
+	errDatasetNoValue                = errors.New("dataset must be specified")
+	errNamespaceNoValue              = errors.New("namespace must be specified")
+	errBulkActionInvalid             = errors.New("bulk_action can either be `create` or `index`")
+	errMappingModeInvalid            = errors.New("mapping.mode is invalid")
+	errLogsIndexTimeFormatInvalid    = errors.New("logs_index_time_format contains unsupported or invalid tokens")
+	errTracesIndexTimeFormatInvalid  = errors.New("traces_index_time_format contains unsupported or invalid tokens")
+	errMetricsIndexTimeFormatInvalid = errors.New("metrics_index_time_format contains unsupported or invalid tokens")
+	errOTelV1DatasetNamespaceUnused  = errors.New(`dataset and namespace are not used by mapping.mode "otel-v1"; remove them or pick a different mode`)
+	errMetricsMappingModeUnsupported = errors.New(`metrics are only supported by mapping.mode "ss4o" and "otel-v1"`)
 )
 
 type MappingsSettings struct {
@@ -202,6 +211,13 @@ func (cfg *Config) Validate() error {
 	if cfg.TracesIndexTimeFormat != "" {
 		if err := validateTimeFormat(cfg.TracesIndexTimeFormat); err != nil {
 			multiErr = append(multiErr, errTracesIndexTimeFormatInvalid)
+		}
+	}
+
+	// Validate MetricsIndexTimeFormat if set
+	if cfg.MetricsIndexTimeFormat != "" {
+		if err := validateTimeFormat(cfg.MetricsIndexTimeFormat); err != nil {
+			multiErr = append(multiErr, errMetricsIndexTimeFormatInvalid)
 		}
 	}
 
